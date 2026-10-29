@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { createZeroTrustListsOneByOne } from "./lib/api.js";
+import { synchronizeZeroTrustLists } from "./lib/api.js";
 import {
   DEBUG,
   DRY_RUN,
@@ -97,6 +97,13 @@ await readFile(resolve(`./${blocklistFilename}`), (line, rl) => {
   // because we are blocking all subdomains
   // Example: fourth.third.example.com => ["example.com", "third.example.com", "fourth.third.example.com"]
   for (const item of extractDomain(domain).slice(1)) {
+    // Check for any higher level domain matches in the allowlist
+    if (allowlist.has(item)) {
+      if (DEBUG) console.log(`Found parent domain ${item} in allowlist - Skipping ${domain}`);
+      allowedDomainCount++;
+      return;
+    }
+
     if (!blocklist.has(item)) continue;
 
     // The higher-level domain is already blocked
@@ -140,7 +147,7 @@ console.log("\n\n");
     `Creating ${numberOfLists} lists for ${domains.length} domains...`
   );
 
-  await createZeroTrustListsOneByOne(domains);
+  await synchronizeZeroTrustLists(domains);
   await notifyWebhook(
     `CF List Create script finished running (${domains.length} domains, ${numberOfLists} lists)`
   );
